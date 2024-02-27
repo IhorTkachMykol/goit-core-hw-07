@@ -33,16 +33,16 @@ class Record:
         self.birthday = None
 
     def add_phone(self, phone):
-        self.phones.append(Phone(phone))
+        if phone not in self.phones:
+            self.phones.append(Phone(phone))
 
     def remove_phone(self, phone):
         self.phones = [p for p in self.phones if str(p) != phone]
 
     def edit_phone(self, old_phone, new_phone):
-        for idx, phone in enumerate(self.phones):
-            if str(phone) == old_phone:
-                self.phones[idx] = Phone(new_phone)
-                break
+        if old_phone in self.phones:
+            idx = self.phones.index(old_phone)
+            self.phones[idx] = Phone(new_phone)
 
     def add_birthday(self, birthday):
         self.birthday = Birthday(birthday)
@@ -79,15 +79,12 @@ def input_error(func):
     def inner(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except ValueError:
-            return "Give me name and phone please."
+        except ValueError as e:
+            return str(e)
         except KeyError:
             return "No such name found"
-        except IndexError:
-            return "Not found."
         except Exception as e:
             return f"Error: {e}"
-
     return inner
 
 @input_error
@@ -101,31 +98,31 @@ PHONE_PATTERN = re.compile(r'^\d{10}$')
 @input_error
 def add_contact(args, book):
     name, phone = args
-    if PHONE_PATTERN.match(phone):
+    if not PHONE_PATTERN.match(phone):
+        raise ValueError("Invalid phone number format. Please enter a 10-digit number.")
+    
+    if name not in book:
         record = Record(name)
         record.add_phone(phone)
         book.add_record(record)
-        with open("contacts.txt", "a") as file:
-            file.write(f"{name} {phone}\n")
         return "Contact added."
     else:
-        raise ValueError("Invalid phone number format. Please enter a 10-digit number.")
+        record = book[name]
+        record.add_phone(phone)
+        return "Phone added."
 
 @input_error
 def change_contact(args, book):
-    name, new_phone = args
-    if PHONE_PATTERN.match(new_phone):
-        if name in book:
-            record = book[name]
-            record.edit_phone(record.phones[0], new_phone)
-            with open("contacts.txt", "w") as file:
-                for contact_name, contact_phone in book.items():
-                    file.write(f"{contact_name} {contact_phone}\n")
-            return "Contact updated."
-        else:
-            return "Contact not found."
-    else:
+    name, old_phone, new_phone = args
+    if not PHONE_PATTERN.match(new_phone):
         raise ValueError("Invalid phone number format. Please enter a 10-digit number.")
+    
+    if name in book:
+        record = book[name]
+        record.edit_phone(old_phone, new_phone)
+        return "Contact updated."
+    else:
+        return "Contact not found."
 
 @input_error
 def get_phone(args, book):
@@ -181,13 +178,19 @@ def main():
         elif command == "hello":
             print("How can I help you?")
         elif command == "add":
-            print(add_contact(args, contacts))
+            print(add_contact(args, book))
         elif command == "change":
-            print(change_contact(args, contacts))
+            print(change_contact(args, book))
         elif command == "phone":
-            print(get_phone(args, contacts))
+            print(get_phone(args, book))
         elif command == "all":
-            print(show_all_contacts(contacts))
+            print(show_all_contacts(book))
+        elif command == "addb":
+            print(add_birthday(args, book))
+        elif command == "showb":
+            print(show_birthday(args, book))
+        elif command == "birth":
+            print(birthdays(_, book))
         else:
             print("Invalid command.")
 
